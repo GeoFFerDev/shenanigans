@@ -16,6 +16,7 @@ local Lighting         = game:GetService("Lighting")
 local HttpService      = game:GetService("HttpService")
 local TeleportService  = game:GetService("TeleportService")
 local StarterGui       = game:GetService("StarterGui")
+local vim              = game:GetService("VirtualInputManager")
 
 local LP     = Players.LocalPlayer
 local Mouse  = LP:GetMouse()
@@ -97,44 +98,49 @@ local function MoveToTarget(t)
         math.clamp((r.Position-cf.Position).Magnitude/Cfg.Combat.TweenSpeed,0.04,1.5),
         Enum.EasingStyle.Linear),{CFrame=cf}):Play() end
 end
-local function ScanRem(...)
-    local RS=game:GetService("ReplicatedStorage")
-    for _,n in ipairs({...}) do local r=RS:FindFirstChild(n,true); if r then return r end end
-end
-local lastAtk=0
+
+local lastAtk = 0
 local function DoAttack(t)
-    if tick()-lastAtk<0.12 then return end; lastAtk=tick()
-    local r=Root(t); if not r then return end
+    if tick() - lastAtk < 0.12 then return end
+    lastAtk = tick()
+    local r = Root(t)
+    if not r then return end
+    
     pcall(function()
-        local rem=ScanRem("CombatRemote","Combat","Attack","CombatEvent","Hit","Punch")
-        if rem then
-            if rem:IsA("RemoteEvent") then rem:FireServer(r)
-            elseif rem:IsA("RemoteFunction") then rem:InvokeServer(r) end
-        end
+        -- Safely simulate a native Left Mouse Click to trigger Knit's FightController
+        vim:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+        task.delay(0.05, function() 
+            pcall(function() vim:SendMouseButtonEvent(0, 0, 0, false, game, 1) end) 
+        end)
     end)
 end
-local isBlocking=false
+
+local isBlocking = false
 local function SetBlock(s)
-    if isBlocking==s then return end; isBlocking=s
+    if isBlocking == s then return end
+    isBlocking = s
     pcall(function()
-        local rem=ScanRem("BlockRemote","Block","BlockEvent","Guard","Parry")
-        if rem and rem:IsA("RemoteEvent") then rem:FireServer(s and "BlockStart" or "BlockEnd") end
+        -- Jujutsu Shenanigans uses 'F' to Block/Parry
+        vim:SendKeyEvent(s, Enum.KeyCode.F, false, game)
     end)
 end
-local lastSkill=0
+
+local lastSkill = 0
 local function UseSkill(t)
     if not Cfg.Farm.UseSkills then return end
-    if tick()-lastSkill<math.max(0,Cfg.Combat.SkillDelay) then return end
+    if tick() - lastSkill < math.max(0.1, Cfg.Combat.SkillDelay) then return end
     if Cfg.Combat.AvoidNoTarget and not t then return end
-    lastSkill=tick()
+    lastSkill = tick()
+    
     pcall(function()
-        local keys={Enum.KeyCode.Q,Enum.KeyCode.E,Enum.KeyCode.R,
-                    Enum.KeyCode.F,Enum.KeyCode.T,Enum.KeyCode.G}
-        local k=keys[math.random(1,#keys)]
+        -- Jujutsu Shenanigans utilizes 1, 2, 3, 4 for its movesets
+        local keys = {Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four}
+        local k = keys[math.random(1, #keys)]
         pcall(function()
-            local vim=game:GetService("VirtualInputManager")
-            vim:SendKeyEvent(true,k,false,game)
-            task.delay(0.06,function() pcall(function() vim:SendKeyEvent(false,k,false,game) end) end)
+            vim:SendKeyEvent(true, k, false, game)
+            task.delay(0.06, function() 
+                pcall(function() vim:SendKeyEvent(false, k, false, game) end) 
+            end)
         end)
     end)
 end
